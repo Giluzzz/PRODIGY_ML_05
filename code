@@ -1,0 +1,176 @@
+# Code to recognize the food from images and estimate their calorie content
+
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("dansbecker/food-101")
+
+print("Path to dataset files:", path)
+
+import os
+
+# List the contents of the Food-101 dataset directory
+dataset_path = '/root/.cache/kagglehub/datasets/dansbecker/food-101/versions/1'
+
+# Check if the dataset path exists
+if os.path.exists(dataset_path):
+    print("Dataset found!")
+    print("Listing contents of the dataset folder:")
+    print(os.listdir(dataset_path))  # List top-level files and directories
+else:
+    print("Dataset path does not exist!")
+# List the contents of the 'food-101' folder
+food_101_path = os.path.join(dataset_path, 'food-101')
+if os.path.exists(food_101_path):
+    print("Contents of the 'food-101' folder:")
+    print(os.listdir(food_101_path))  # List contents of the 'food-101' folder
+else:
+    print("The 'food-101' folder does not exist!")
+import zipfile
+
+# Path to the food-101.zip file
+zip_file_path = os.path.join(dataset_path, 'food-101.zip')
+
+# Extract the zip file if it exists
+if os.path.exists(zip_file_path):
+    print(f"Extracting {zip_file_path}...")
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall(food_101_path)  # Extract to the 'food-101' folder
+    print("Extraction completed!")
+else:
+    print(f"{zip_file_path} not found!")
+# List the contents of the 'food-101' folder again to check for image subdirectories
+food_101_path = os.path.join(dataset_path, 'food-101')
+print("Re-listing contents of the 'food-101' folder:")
+print(os.listdir(food_101_path))
+# Path to the nested 'food-101' folder
+nested_food_101_path = os.path.join(dataset_path, 'food-101', 'food-101')
+
+# Check if the nested 'food-101' folder exists and list its contents
+if os.path.exists(nested_food_101_path):
+    print("Contents of the nested 'food-101' folder:")
+    print(os.listdir(nested_food_101_path))  # List contents of the nested folder
+else:
+    print("The nested 'food-101' folder does not exist!")
+import os
+import random
+from PIL import Image
+import matplotlib.pyplot as plt
+
+# Path to the nested 'food-101' folder
+nested_food_101_path = os.path.join(dataset_path, 'food-101', 'food-101', 'images')
+
+# List food categories (subdirectories)
+food_categories = os.listdir(nested_food_101_path)
+print("Food categories:", food_categories[:10])  # Print first 10 categories
+
+# Choose a random category and display some images
+random_category = random.choice(food_categories)
+category_path = os.path.join(nested_food_101_path, random_category)
+food_images = os.listdir(category_path)
+
+# Choose a random image from the selected category
+random_image = random.choice(food_images)
+img_path = os.path.join(category_path, random_image)
+
+# Display the image
+img = Image.open(img_path)
+plt.imshow(img)
+plt.axis('off')  # Hide axes
+plt.show()
+
+print(f"Random food image from category '{random_category}': {random_image}")
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras import layers, models
+
+# Set the image size
+img_size = (224, 224)
+
+# Prepare the ImageDataGenerator for data preprocessing
+train_datagen = ImageDataGenerator(
+    rescale=1.0/255.0,  # Normalize pixel values to [0, 1]
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+# Create the training generator
+train_generator = train_datagen.flow_from_directory(
+    nested_food_101_path,  # Path to images
+    target_size=img_size,  # Resize the images
+    batch_size=32,
+    class_mode='categorical',  # Multi-class classification
+    shuffle=True
+)
+
+# Verify the number of classes
+print(f"Number of food categories (classes): {train_generator.num_classes}")
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras import layers, models
+
+# Load the VGG16 model pre-trained on ImageNet (without the top classification layers)
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+
+# Freeze the layers of the base model (don't train them)
+base_model.trainable = False
+
+# Build the model
+model = models.Sequential([
+    base_model,
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(train_generator.num_classes, activation='softmax')  # Output layer for food categories
+])
+
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model
+history = model.fit(
+    train_generator,
+    epochs=10,  # Train for 10 epochs (adjust as needed)
+    steps_per_epoch=train_generator.samples // train_generator.batch_size
+)
+# Example calorie dictionary (you can update this with real data)
+calories_dict = {
+    'apple_pie': 250,
+    'cheeseburger': 300,
+    'pizza': 285,
+    'salad': 150,
+    'apple': 95,
+    'burger': 354,
+    'pasta': 220,
+    'cake': 350,
+    'banana': 105,
+    'sandwich': 250,
+    'sushi': 180,
+    'chicken': 335,
+    # Add more categories as needed
+}
+
+# Function to estimate calories based on predicted category
+def estimate_calories(predicted_class):
+    food_category = train_generator.class_indices.keys()[predicted_class]  # Get the food category name
+    estimated_calories = calories_dict.get(food_category, "Unknown")  # Retrieve calories from the dictionary
+    return estimated_calories
+
+# Example: Predict calories for a random image
+img_path = os.path.join(nested_food_101_path, 'apple_pie', '1000.jpg')  # Example image path
+img = Image.open(img_path).resize(img_size)  # Resize image
+
+# Preprocess the image for prediction
+img_array = np.array(img) / 255.0  # Normalize
+img_array = img_array[np.newaxis, ...]
+
+# Predict the food category
+predicted_class = np.argmax(model.predict(img_array))  # Get the predicted class index
+predicted_calories = estimate_calories(predicted_class)
+
+print(f"Predicted category: {train_generator.class_indices.keys()[predicted_class]}")
+print(f"Estimated calories: {predicted_calories}")
