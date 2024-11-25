@@ -1,0 +1,116 @@
+# To predict daily food chart
+
+# Calorie dictionary (expand this as needed)
+food_calories = {
+    'pizza': 285,
+    'apple': 95,
+    'burger': 354,
+    'pasta': 220,
+    'salad': 150,
+    'cake': 350,
+    'banana': 105,
+    'sandwich': 250,
+    'sushi': 180,
+    'chicken': 335,
+    # Add more food items here
+}
+
+def estimate_calories(food_label):
+    """
+    Estimate calories based on food label.
+    """
+    food_label = food_label.lower()
+    return food_calories.get(food_label, "Calories not available for this food item")
+import tensorflow as tf
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
+
+# Load the ResNet50 model pre-trained on ImageNet
+model = ResNet50(weights='imagenet')
+
+def preprocess_image(img_path):
+    """
+    Preprocess the input image for the ResNet50 model
+    """
+    img = image.load_img(img_path, target_size=(224, 224))  # ResNet50 expects 224x224 images
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+    img_array = preprocess_input(img_array)
+    return img_array
+
+def predict_food(img_path):
+    """
+    Predict the food item from an image and return the top prediction.
+    """
+    img_array = preprocess_image(img_path)
+    preds = model.predict(img_array)
+    decoded_preds = decode_predictions(preds, top=3)[0]  # Get top-3 predictions
+    return decoded_preds[0][1]  # Return the most likely food label
+
+    import pandas as pd
+from datetime import datetime
+
+# This DataFrame will store food entries for calorie tracking
+calorie_log = pd.DataFrame(columns=["Timestamp", "Food", "Calories"])
+
+def log_food_intake(food_label):
+    """
+    Log food intake with timestamp and calorie estimation.
+    """
+    calories = estimate_calories(food_label)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    food_entry = {"Timestamp": timestamp, "Food": food_label, "Calories": calories}
+    global calorie_log
+    calorie_log = calorie_log.append(food_entry, ignore_index=True)
+    print(f"Logged {food_label} with {calories} calories at {timestamp}")
+def get_daily_calories():
+    """
+    Get the total calorie intake for today.
+    """
+    today = datetime.now().strftime('%Y-%m-%d')
+    daily_log = calorie_log[calorie_log["Timestamp"].str.startswith(today)]
+    total_calories = daily_log["Calories"].apply(lambda x: x if isinstance(x, int) else 0).sum()
+    print(f"Total calories consumed today: {total_calories} kcal")
+    return total_calories
+from google.colab import files
+import io
+
+# Function to upload and track food intake
+def upload_and_track_food():
+    uploaded = files.upload()  # Upload a food image
+    for fn in uploaded.keys():
+        print(f"User uploaded: {fn}")
+        food_label = predict_food(fn)
+        calories = estimate_calories(food_label)
+        print(f"Predicted food: {food_label} with {calories} calories")
+
+        # Log the food intake
+        log_food_intake(food_label)
+
+        # Get daily calorie total
+        get_daily_calories()
+# Define a calorie target (example: 2000 kcal per day)
+calorie_target = 2000
+
+def recommend_food():
+    total_calories = get_daily_calories()
+    remaining_calories = calorie_target - total_calories
+
+    if remaining_calories > 0:
+        print(f"You can still consume {remaining_calories} kcal today.")
+        # Suggest a food item that fits the remaining calories
+        recommended_food = [food for food, calories in food_calories.items() if calories <= remaining_calories]
+        print("Recommended food choices:", recommended_food)
+    else:
+        print(f"You've exceeded your daily calorie target by {abs(remaining_calories)} kcal. Consider healthier options.")
+def main():
+    # Upload a food image
+    upload_and_track_food()
+
+    # Get food recommendations based on user's daily target
+    recommend_food()
+
+# Run the main function
+main()
+
