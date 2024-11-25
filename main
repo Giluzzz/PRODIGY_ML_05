@@ -1,0 +1,7 @@
+Model to recognize Food items from images and estimate their calories
+
+Develop a model to accurately recognize food items from images and estimate their calorie content enabling users to track their dietary intake and make informed food choices
+
+To develop a model that can accurately recognize food items from images and estimate their calorie content, we need to identify the food item in the image. Then classify the food item in to specific category
+and then estimate the calorie content from the classified category. Initially we need to train the model with a large labeled dataset containing various food items and their calories.
+Then preprocess the data and then develop a model architecture to recognize the food item i.e image classification and estimate calorie content i.e regression. Train the model and then evaluate its accuracy precission and recall and calorie estimation using RSE or AE.
